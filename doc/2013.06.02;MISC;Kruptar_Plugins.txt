@@ -1,0 +1,3 @@
+[o2.o6.2o13] <a href="?doc=Kruptar_Plugins">Kruptar plugins coding</a>  [MiSC]
+============================================
+ Document describes plugin creation for Kruptar (text dumping/insertion utility). Unlike my <a href="http://magicteam.net/?page=documents&amp;show=%D0%9D%D0%B0%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20%D0%BF%D0%BB%D0%B0%D0%B3%D0%B8%D0%BD%D0%BE%D0%B2%20%D0%B4%D0%BB%D1%8F%20Kruptar%207">previous document</a>, here I will use C language and MinGW for compilation. Article is aimed at experienced reader.

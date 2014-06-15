@@ -1,0 +1,5 @@
+[o2.o6.2o13]
+============
+Wow, that's been a while since my last activity here. I have no excuses - just real life and work :) I will not promise anything global here, especially as the RSS channel is still running. If you're interested, just subscribe.
+I have cleared design - tutorials look better now everywhere, except IE. I don't want to make a mess in HTML code for the sake of IE compatibility. More pages now meet all W3C markup requirements. And yes, I have switched to English. Use Google translate if necessary.
+For today brief  <a href="doc/?doc=Kruptar_Plugins">document</a>, which describes Kruptar's plugin writing process in C.

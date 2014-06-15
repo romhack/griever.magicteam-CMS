@@ -1,0 +1,203 @@
+1. Introduction.
+This manual documents how to use Kruptar (current version 7.1.1.17), and describes principles of writing plugins for that tool (focused mainly on C language).
+Kruptar - is a tool for extracting and inserting text, widely used in romhacking and fan translation. Main purpose is to extract, edit, insert text and automatically recalculate pointers in one application, which is easily extendable by plugins for any compression support. Kruptar also supports DTE/MTE schemes natively. 
+By analogy, this is like Atlas and Cartographer in one nice GUI with extended pointers schemes and full plugins support.
+Written by Djinn a.k.a. Kusharami, latest version can be found at <a href="http://magicteam.net">Magicteam</a> - Russian fan translation group. Hereinafter I will sometimes refer to Russian websites and at your will, please use <a href="http://translate.google.com/#ru/en/">online translation services</a>.
+
+2. Kruptar options.
+First things first, Kruptar has great GUI, which is self-explanatory. Here I will clarify a few not so obvious things in short.
+
+Project creation is straightforward: you specify source/destination ROMs and tables, create group, specify places in ROM, which can be used for text storage, add list of pointers, by choosing pointer scheme, options and pointer table offsets. Right after that, Kruptar extracts string corresponding to each pointer and you can save project file.
+Kruptar stores its project in *.kpx file, which is zip archive. Inside you will find all tables, which you have previously loaded in project, changed script in *.txt and *.kdt - binary file, which stores group/list names, offsets, options etc.
+After editing strings you, can press Recalculate and Insert button for text insertion.
+And now, the options:
+All numerical options can have 'h' before the value, for assigning it as hexadecimal.
+kpCodePage: ??? 
+	Specifies code page, Kruptar will use for your table files and text.
+kpFlags:
+	0 - No text display features
+	1 - CLRF codes will not be shown in text, but will be inserted as usual.
+	2 - Display features for DTE/MTE dictionaries
+Tables: 
+	You can load a table from separate file. CLRF codes should not have any '=' signs and string terminators should go after special word 'ends'. For example:
+	41=A
+	42=B
+	43=C
+	44=D
+	45=E
+	46=F
+	FF
+	ends
+	00
+grPlugin:
+	Specifies plugin for that separate text group
+grIsDictionary:
+	Makes that group dictionary. That affects some display features (affected by kpFlags = 2) and some dictionary options become available.
+ptDictionary:
+	Specifies dictionary group for DTE/MTE scripts
+ptPointerSize:
+	Size of pointer in bytes. Can be 0 for scripts without pointers, just specify first and last strings offsets during 'Add Pointers'
+ptReference:
+	stringOffset = ptReference + pointerValue
+ptInterval:
+	Space in bytes between two separate pointers in pointer table.
+ptAlignment:
+	String offset force-alignment. This affects pointer value, of course.
+ptShiftLeft:
+	Pointer[i].value <<= ptShiftLeft; During extraction.
+ptCharSize:
+	Specifies character size in original encoding for proper pointer value recalculation.	
+ptStringLength:
+	Length of fixed-length strings. If length is 0, Kruptar searches for string terminators. If both ptStringLength and ptPointerSize are zeroed, just specify ROM's text block first and last bytes offsets during 'Add Pointers'
+ptBIG_ENDIAN:
+	Pointer's endianness
+ptSplittedPtrs:
+	Space in bytes between bytes in one pointer. For example, when pointer value is in operands of two commands.
+ptSNESlorom:
+	For SNES LoROM images proper pointer recalculation.
+ptAutoPtrStart:
+	ptReference = PointerTableOffset; No need to fill ptReference. 
+ptAutoReference:
+	stringOffset[i] = ptReference + Pointer[i].value + Pointer[i].offset; 
+ptPtrtoPtr:
+	Pointer to pointer to string.
+ptSeekSame:
+	During insertion, same strings will have the same pointer. No redundancy in text space.
+ptNotInSource:
+	Specifies group of strings, which was not previously in original ROM (added by translator)
+
+Right mouse button click on corresponding List gives you opportunity to select
+Fix pointers positon:
+	If you have changed pointer scheme somehow (for instance, ptDestPtrSize became 4 because text volume has increased), this recalculates pointer position for a new scheme.
+Reset TBL links:
+	Resets table links for all strings in group.
+Near-Pointer Variables:
+	This data can be represented as variables near pointers. The size is specified in ptInterval.
+
+
+3. Kruptar plugins.
+Using described above options you can easily edit almost any plain script just with standard Kruptar. As Kruptar (naturally) does not provide interface for pointers modification, there are two cases when you want to write a plugin for Kruptar:
+1. Some script features, like unencoded blocks of binary data inside script's body or some optimizations when you just want text to look perfectly plain without raw special symbols inside script.
+2. Any text compression, while pointers are still stored in a plain way without bit packing or modification in a structure.
+Any other cases are feasible within Kruptar, for instance:
+	a) NES Battletoads - script is compressed with Huffman and pointer value stores bit position in the stream, to start unpacking with. You can specify one pointer-to-pointer table, which will be passed to plugin. Process pointer table in Kruptar and add pass appropriate amount of unpacked strings to Kruptar. On insertion phase you should then recalculate pointers in plugin, pack start bits in them and write text and pointers via plugin.
+	b) Wii Metroid Prime - script elements with pointers are compressed with LZO. You can pass one pointer to packed stream in your plugin, unpack, add strings to Kruptar and pack everything back via plugin.
+Still it would be more natural to write separate application only for decompression/unpacking, and edit unpacked file in turn with Kruptar.
+
+Next, I will describe few coding examples for effective plugin.
+
+3.1 Compilation and debug
+Kruptar uses plugins even in general plaintext cases. Default plugin is Standard.kpl - gets offset to the string, searches for a line terminator and copies one string to Kruptar's buffer. Plugin is just a compiled dll, of course. Natively it should be created with Delphi. For some examples of Delphi plugin coding you can check <a href="http://magicteam.net/?page=documents&show=%D0%9D%D0%B0%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20%D0%BF%D0%BB%D0%B0%D0%B3%D0%B8%D0%BD%D0%BE%D0%B2%20%D0%B4%D0%BB%D1%8F%20Kruptar%207">this.</a> Delphi - is the commercial proprietary IDE and Kruptar is written in it. That will be the issue: Kruptar uses 'sharemem' unit for memory share with it's plugins. Even dlls, compiled with Free Pascal are not compatible with Kruptar, as Delphi string has to be managed by the Delphi runtime. In addition, Delphi uses Object Pascal dialect, which means, we have to rewrite in Pascal open-source C code for compression process, for instance.
+Our target - is to create fully functional GCC compiled Kruptar plugin. And here is the plan: we'll compile an <a href="http://en.wikipedia.org/wiki/Adapter_design_pattern">adapter</a> plugin in Delphi, which will transmit data between our gcc dll and Kruptar. This adapter is named 'c_plugin.kpl' and should be placed in Kruptar's Lib directory. At Kurptar's load, plugin asks for a path to dll, we created with gcc. During project creation, c_plugin.kpl is specified in grPlugin and extraction/insertion is committed now via our code.
+It is time to open up code for our examples <a href="https://github.com/Grivr/Kruptar_C_Plugins">here</a>  or <a href="../files/Kruptar_C_Plugins.zip">here</a>.
+All examples can be compiled with MinGW. Setting up environment, gcc and gdb usage is beyond this document's scope. I will just explain few tricks.
+In Makefile you can find: $(CC) $(CFLAGS) -shared -o $(TARGET).dll $(TARGET).o -Wl,--kill-at
+"--kill-at" is a must for any Delphi host application because of function <a href="http://www.willus.com/mingw/yongweiwu_stdcall.html">decorations</a>. Otherwise, mandatory functions, like "GetEncodeSize" will be decorated to "GetEncodeSize@4" by compiler and c_plugin.kpl will not accept your plugin dll.
+"-shared" is needed for every dll, of course.
+For debug, I prefer to use standard gdb attaching to host application, as Kruptar is not open source anyway:
+
+gdb gcc_dll.dll
+
+Reading symbols from d:\Kruptar\C_plugin\gcc_dll.dll...done.
+(gdb) attach 3536//that's current PID for Kruptar
+Attaching to program `d:\Kruptar\C_plugin\gcc_dll.dll', process 3536
+[New Thread 3536.0xfa0]
+.
+.
+.
+[New Thread 3536.0x6f8]
+(gdb) b GetEncodeSize@4//you have to specify function name with decoration, 
+//as gdb uses compiler-decorated symbols from debug dll.
+//But you can just autocomplete function name by TAB in gdb
+Breakpoint 1 at 0x6190130b: file gcc_dll.c, line 41.
+(gdb) c
+Continuing.
+[Switching to Thread 3536.0xfa0]
+
+//here I add 1 pointer to group in Kruptar and fall in breakpoint
+
+Breakpoint 1, GetEncodeSize@4 (data=0x12f6dc) at gcc_dll.c:41
+41      int stringsCount =  data->tStringsCount();//tStringsCount is inside c_plugin.kpl
+(gdb) n
+0x02184348 in ?? () from D:\Kruptar\Kruptar\Lib\c_plugin.kpl//wut?!
+(gdb) si
+0x0218434d in ?? () from D:\Kruptar\Kruptar\Lib\c_plugin.kpl//continue trying or we could use 'finish' command
+(gdb)
+0x02184350 in ?? () from D:\Kruptar\Kruptar\Lib\c_plugin.kpl
+(gdb)
+0x61901313 in GetEncodeSize@4 (data=0x12f6dc) at gcc_dll.c:41
+41      int stringsCount =  data->tStringsCount();//we're back in our dll
+.
+.
+.
+
+3.2 Mandatory functions and PluginData.
+
+Interface for c_plugin.kpl is placed in gcc_dll.h and used by all C plugins:
+Structure tPluginData is used to pass all necessary data between Kruptar and C plugin. 
+
+typedef struct __attribute__((__packed__)){
+    void *rom;//ROM is copied entirely to dynamic memory by Kruptar, so plugin can work with all ROM contents
+	long int romSize;
+	long int param;//reserved 
+	long int charSize;
+	
+	int (__stdcall *tStringAdd)(char *str, long int size);//Adds processed strings from plugin buffer to Kruptar during extraction
+	void (__stdcall *tStringSet)(int index, char *str, long int size);//Sets Kruptar strings at given index with bytes from str
+	char* (__stdcall *tStringGet)(int index, long int* size);//Gets strings to plugin buffer for processing during insertion time
+	//One pointer can have more than one string in Kruptar. String number is specified by index
+	 
+	long int (__stdcall *tStringsCount)();	
+	long int originalStringSize;//used if it's necessary to return original size of string in ROM
+   
+}tPluginData; 
+
+All C plugin dlls must have 3 functions:
+
+void Decode (tPluginData *data, long int offset);
+/*
+Decodes/uncompresses string from ROM. 
+offset (in ROM) is calculated by Kruptar, using pointer value
+*/
+
+long int GetEncodeSize (tPluginData *data);
+/*
+Returns size of compressed/encoded string
+c_plugin.kpl has to call first GetEncodeSize to allocate buffer in dynamic memory and then Encode for filling this buffer.
+Not very convenient, so I will fill inner global buffer with encoded string right in GetEncodeSize and then,
+at Encode phase, just copy buffer to Kruptar's one.
+Pointers will also be recalculated based on GetEncodeSize returned value.
+*/	
+
+void Encode (tPluginData *data, void *buffer);
+/*
+Fills Kruptar's buffer with encoded string, 
+which will be inserted in ROM file by Kruptar at proper address.
+*/
+
+3.3 Examples
+3.3.1. Sample
+
+For starters, I will make a simple project for binary file with ASCII encoding, filled with 1-byte pointers and two NULL-terminated strings.
+Whole Decode code is mainly dynamic array realization in C - I set up a source pointer to ROM + string offset and keep copying bytes to my str[] untill I find '\00' terminator.
+At the end I do tStringAdd(str,strlen(str)) and my str gets copied to Kruptar's memory.
+
+GetEncodeSize first gets string from Kruptar by data->tStringGet(index, pStrSize). tStringGet returns NULL if there are no more strings at given index, assigned to current pointer, so I loop through all indexes. Inside I realloc global for my dll output buffer to fit another string and copy whole string to buffer, also calculating global encodeSize.
+
+By the time Encode is executed, I have already filled outBuffer and it is still stored in dynamic memory. Moreover, Kruptar has already allocated memory for output buffer at size, returned by GetEncodeSize. So I just make memcpy(buffer, outBuffer, encodeSize) and Kruptar pastes this buffer at the right place in ROM.
+Kpx project is self-evident and you can learn everything just watching what options have been set in it.
+
+3.3.2. Standard
+That will be the absolute analog for Standard.kpl, written in C. As an example I have took NES Final Fantasy, which actually uses DTE. Do not worry; the DTE itself will be handled by Kruptar's table support feature. All plugin needs to pass is byte string, which will be then decoded by Kruptar.
+And yes, I've tricked you a little: code wise standard plugin is absolutely the same as sample one. No surprise here: you still have to look through rom for an end of string, copying bytes until then. In Encode phase, Kruptar will find optimum code for DTE entry and return byte, which our plugin will copy to output buffer. I have included that in archive for the sake of Final Fantasy kpx file, 
+
+3.3.3. Heimdall
+Sega CD Heimdall game uses sort of advanced script format with some binary data in it. For example, first byte of some strings is '\00', and strings are NULL-terminated, which means with our previous code some of the strings will not be added to Kruptar. We will have to just copy first byte of the string and search for line termiator in rest part at Decode phase:
+data->tStringAdd(str, size);
+not strlen(str), as we had in previous examples, because C's strlen will also take string length up to 1st '\00' symbol, which means string, which starts from '\00' will have length 0 and will not be fully added to Kruptar.
+You can check contents of kpx file for detailed information of script structure.
+
+3.3.4 Snake's Revenge
+Good old 6-bit encoding for text - Kruptar plugin is intended for such things. It was pretty well described in my previous document for Kruptar's plugins coding in Delphi, and here I just rewrote this code into C and compiled in plugin ("-s" compiled dll is 3 times smaller than Delphi's kpx). You can also check code details in foresaid sources. I have also included kpx file for script structure understanding.
+
+That concludes Kruptar plugins theme. If I was not detailed enough or you have additional questions, feel free to ask them in the form below.

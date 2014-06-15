@@ -1,0 +1,15 @@
+body{color: #000000; font-family: Garamond,Apple Garamond,Baskerville,Georgia,serif; margin: 0 auto; font-size: medium; width: 50%; text-align: justify;}
+.c
+{border-style:solid;
+border-width:1px;	
+text-align:center;
+width:100px;}
+.d
+{border-style:solid;
+border-width:1px;	
+text-align:center;
+width:50px;}
+a:link {text-decoration:none;}
+a:visited {text-decoration:none;}
+a:hover {text-decoration:none;}
+a:active {text-decoration:none;}
