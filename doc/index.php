@@ -170,7 +170,7 @@ END;
 				$file = fopen($filename, "a");
 				fwrite($file, $str);
 				fclose($file);
-				mail("Romhack@gmail.com", "New Comment at Griever's Stuff", "http://www.griever.magicteam.net".$_SERVER[REQUEST_URI]."\n\n".$name.":\n".$_POST['message']);
+				mail("R@gmail.com", "New Comment at Griever's Stuff", "http://www.griever.magicteam.net".$_SERVER[REQUEST_URI]."\n\n".$name.":\n".$_POST['message']);
 				echo "<html><head><meta http-equiv='Refresh' content='0; URL=$_SERVER[REQUEST_URI]'></head></html>";
 				exit();
 			}

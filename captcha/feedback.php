@@ -46,7 +46,7 @@ if(count($_POST)>0)
 	{
 		if(isset($_SESSION['captcha_keystring']) && $_SESSION['captcha_keystring'] == $_POST['keystring'])
 		{		
-			mail("Romhack@gmail.com", "Feedback from Griever's site", $name.":\n".$_POST['message']); 
+			mail("R@gmail.com", "Feedback from Griever's site", $name.":\n".$_POST['message']); 
 			echo"Message is sent. Appreciate your feedback.";
 		}
 		else
